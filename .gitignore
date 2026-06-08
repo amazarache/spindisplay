@@ -1,0 +1,48 @@
+# Python build artifacts
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Packet captures and trace files — these can contain plaintext WiFi
+# credentials (the F56's cmd 0x12 reply embeds SSID/PSK at fixed offsets,
+# see README "Security note"). NEVER commit a capture without redaction.
+*.pcap
+*.pcapng
+*.cap
+*.etl
+captures/
+pcaps/
+
+# Secrets and local config
+.env
+.env.*
+secrets/
+secrets.toml
+credentials.json
+*.pem
+*.key
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*~
+.DS_Store
+
+# Local scratch / experiments
+scratch/
+tmp/
+
+# Internal dev notes — CLAUDE.md contains host network topology, MAC
+# addresses, and other identifying info that should stay off the public repo.
+CLAUDE.md

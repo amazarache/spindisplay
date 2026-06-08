@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spin Display F56</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #161a23;
+    --fg: #e6e9ef;
+    --muted: #7a8194;
+    --accent: #6cd3ff;
+    --play: #2ecc71;
+    --stop: #e74c3c;
+    --unknown: #8e8e93;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; padding: 32px 16px;
+    min-height: 100vh; }
+  h1 { margin: 0 0 24px; font-weight: 600; font-size: 1.4rem; letter-spacing: -0.01em; }
+  .panel { background: var(--panel); border-radius: 16px; padding: 24px; width: 100%;
+    max-width: 480px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+  .status { display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+    padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,0.03); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--unknown);
+    flex-shrink: 0; transition: background 0.2s ease; box-shadow: 0 0 0 0 currentColor; }
+  .dot.playing { background: var(--play); animation: pulse 1.5s ease-in-out infinite; }
+  .dot.stopped { background: var(--stop); }
+  .dot.unknown { background: var(--unknown); }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0); }
+  }
+  .status-text { font-weight: 600; font-size: 1.05rem; }
+  .status-sub { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { font-family: inherit; font-size: 1rem; font-weight: 600; padding: 18px 12px;
+    border: none; border-radius: 12px; cursor: pointer; color: white;
+    transition: transform 0.05s, opacity 0.15s; user-select: none; }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .play-btn { background: var(--play); }
+  .stop-btn { background: var(--stop); }
+  .refresh-btn { grid-column: span 2; background: rgba(255,255,255,0.06); color: var(--fg); padding: 12px; font-weight: 500; }
+  .log { margin-top: 16px; padding: 8px 12px; background: rgba(0,0,0,0.3); border-radius: 8px;
+    font-family: ui-monospace, SF Mono, monospace; font-size: 0.78rem; color: var(--muted);
+    white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+  .future { margin-top: 24px; padding: 16px; border-radius: 12px;
+    background: rgba(108, 211, 255, 0.05); border-left: 3px solid var(--accent); }
+  .future h3 { margin: 0 0 8px; font-size: 0.95rem; color: var(--accent); }
+  .future p { margin: 4px 0; color: var(--muted); font-size: 0.85rem; }
+  .stubs { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stub { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; padding: 12px; cursor: pointer; transition: background 0.15s; }
+  .stub:hover { background: rgba(255,255,255,0.07); }
+  .stub-name { font-weight: 600; font-size: 0.9rem; color: var(--fg); }
+  .stub-phase { color: var(--accent); font-size: 0.75rem; margin-top: 2px; }
+  .stub-blocked { color: var(--muted); font-size: 0.72rem; margin-top: 6px; line-height: 1.35; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none;
+    align-items: center; justify-content: center; padding: 16px; z-index: 99; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--panel); border-radius: 16px; padding: 24px; max-width: 480px;
+    width: 100%; color: var(--fg); }
+  .modal h3 { margin: 0 0 12px; }
+  .modal pre { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px;
+    font-size: 0.78rem; white-space: pre-wrap; color: var(--muted); margin: 12px 0; max-height: 200px; overflow-y: auto; }
+  .modal-close { background: var(--accent); color: var(--bg); border: none; padding: 10px 18px;
+    border-radius: 8px; font-weight: 600; cursor: pointer; }
+  .bright { margin-top: 16px; padding: 14px 16px; background: rgba(255,255,255,0.03); border-radius: 12px; }
+  .bright-row { display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; font-size: 0.9rem; color: var(--muted); }
+  .bright-val { font-family: ui-monospace, monospace; color: var(--fg); font-weight: 600; }
+  .bright input[type=range] { width: 100%; accent-color: var(--accent); }
+  .bright-hint { font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
+  .info { margin-top: 14px; }
+  .info-out { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;
+    font-family: ui-monospace, monospace; font-size: 0.78rem; color: var(--muted);
+    white-space: pre-wrap; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Spin Display F56</h1>
+
+<div class="panel">
+  <div class="status" id="status">
+    <div class="dot unknown" id="dot"></div>
+    <div>
+      <div class="status-text" id="state-text">Checking…</div>
+      <div class="status-sub" id="state-sub">connecting to fan</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="play-btn" id="play-btn">PLAY</button>
+    <button class="stop-btn" id="stop-btn">STOP</button>
+    <button class="refresh-btn" id="refresh-btn">refresh status</button>
+  </div>
+
+  <div class="bright">
+    <div class="bright-row">
+      <label for="bright-slider">Brightness</label>
+      <span id="bright-val" class="bright-val">3/5 (60%)</span>
+    </div>
+    <input type="range" id="bright-slider" min="0" max="5" value="3">
+    <div class="bright-hint">wire range 0–5; SpinDisplay app exposes finer % steps but the firmware quantizes to 6 levels (cmd 0x13)</div>
+  </div>
+
+  <div class="info">
+    <button class="refresh-btn" id="info-btn">show device info (redacted)</button>
+    <pre id="info-out" class="info-out" style="display:none"></pre>
+  </div>
+
+  <div class="log" id="log">ready</div>
+</div>
+
+<div class="panel future">
+  <h3>Roadmap</h3>
+  <p>Click any tile to see exactly what's blocking it.</p>
+  <div class="stubs" id="stubs"></div>
+</div>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3 id="modal-title">…</h3>
+    <pre id="modal-body">…</pre>
+    <button class="modal-close" id="modal-close">close</button>
+  </div>
+</div>
+
+<script>
+const dot = document.getElementById('dot');
+const stateText = document.getElementById('state-text');
+const stateSub = document.getElementById('state-sub');
+const log = document.getElementById('log');
+const playBtn = document.getElementById('play-btn');
+const stopBtn = document.getElementById('stop-btn');
+const refreshBtn = document.getElementById('refresh-btn');
+
+function logMsg(s) {
+  const ts = new Date().toLocaleTimeString();
+  log.textContent = `[${ts}] ${s}\n` + log.textContent;
+  if (log.textContent.length > 2000) {
+    log.textContent = log.textContent.slice(0, 2000);
+  }
+}
+
+function setStatus(label, sub, kind) {
+  stateText.textContent = label;
+  stateSub.textContent = sub;
+  dot.className = 'dot ' + kind;
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch('/holo/api/status');
+    if (!r.ok) {
+      const err = await r.text();
+      setStatus('UNREACHABLE', `HTTP ${r.status}`, 'unknown');
+      logMsg('status error: ' + err.slice(0, 200));
+      return;
+    }
+    const d = await r.json();
+    if (!d.reachable) {
+      setStatus('UNREACHABLE', 'fan does not answer on TCP 50110', 'unknown');
+      return;
+    }
+    const kind = d.state === 'PLAYING' ? 'playing' : d.state === 'STOPPED' ? 'stopped' : 'unknown';
+    setStatus(d.state, `state byte 0x${d.state_byte.toString(16).padStart(2,'0')}`, kind);
+  } catch (e) {
+    setStatus('ERROR', String(e), 'unknown');
+    logMsg('fetch failed: ' + e);
+  }
+}
+
+async function sendAction(name) {
+  playBtn.disabled = true;
+  stopBtn.disabled = true;
+  try {
+    const r = await fetch('/holo/api/' + name.toLowerCase(), { method: 'POST' });
+    if (!r.ok) {
+      const err = await r.text();
+      logMsg(name + ' failed: ' + err.slice(0, 200));
+      return;
+    }
+    logMsg(name + ' sent');
+    // small delay to give the fan time to update state
+    setTimeout(refreshStatus, 400);
+  } catch (e) {
+    logMsg(name + ' error: ' + e);
+  } finally {
+    playBtn.disabled = false;
+    stopBtn.disabled = false;
+  }
+}
+
+playBtn.addEventListener('click', () => sendAction('play'));
+stopBtn.addEventListener('click', () => sendAction('stop'));
+refreshBtn.addEventListener('click', refreshStatus);
+
+// Brightness slider — debounced sends to avoid drowning the radio.
+const brightSlider = document.getElementById('bright-slider');
+const brightVal = document.getElementById('bright-val');
+let brightTimer = null;
+let inFlight = false;
+async function sendBrightness(level) {
+  if (inFlight) return;
+  inFlight = true;
+  try {
+    const r = await fetch('/holo/api/brightness', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level }),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      logMsg('brightness ' + level + ' failed: ' + err.slice(0, 200));
+      return;
+    }
+    logMsg('brightness → ' + level);
+  } catch (e) {
+    logMsg('brightness error: ' + e);
+  } finally {
+    inFlight = false;
+  }
+}
+brightSlider.addEventListener('input', () => {
+  const lvl = parseInt(brightSlider.value, 10);
+  brightVal.textContent = `${lvl}/5 (${lvl * 20}%)`;
+  if (brightTimer) clearTimeout(brightTimer);
+  brightTimer = setTimeout(() => sendBrightness(lvl), 200);
+});
+
+// Device-info button
+document.getElementById('info-btn').addEventListener('click', async () => {
+  const out = document.getElementById('info-out');
+  out.style.display = 'block';
+  out.textContent = 'querying…';
+  try {
+    const r = await fetch('/holo/api/device_info');
+    const d = await r.json();
+    if (!r.ok) {
+      out.textContent = 'error: ' + JSON.stringify(d);
+      return;
+    }
+    out.textContent = JSON.stringify(d, null, 2);
+  } catch (e) {
+    out.textContent = 'fetch failed: ' + e;
+  }
+});
+
+// initial load + periodic refresh
+refreshStatus();
+setInterval(refreshStatus, 4000);
+
+// Roadmap stubs — each entry is wired to a /holo/api/* endpoint that
+// returns 501. Clicking shows the server's "blocked_on" reason.
+const STUBS = [
+  { name: 'List SD files',  endpoint: '/holo/api/files',      method: 'GET'  },
+  { name: 'Play file N',    endpoint: '/holo/api/play_file',  method: 'POST', body: { index: 1 } },
+  { name: 'Upload content', endpoint: '/holo/api/upload',     method: 'POST', isUpload: true },
+  { name: 'Speak (TTS)',    endpoint: '/holo/api/speak',      method: 'POST', body: { text: 'hello', voice: 'default' } },
+  { name: 'AI chat (face)', endpoint: '/holo/api/chat',       method: 'POST', body: { message: 'hello' } },
+];
+
+const stubsEl = document.getElementById('stubs');
+const modalBg = document.getElementById('modal-bg');
+const modalTitle = document.getElementById('modal-title');
+const modalBody = document.getElementById('modal-body');
+document.getElementById('modal-close').onclick = () => modalBg.classList.remove('show');
+modalBg.onclick = (e) => { if (e.target === modalBg) modalBg.classList.remove('show'); };
+
+STUBS.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'stub';
+  div.innerHTML = `<div class="stub-name">${s.name}</div>
+                   <div class="stub-phase">${s.endpoint}</div>
+                   <div class="stub-blocked">click to probe</div>`;
+  div.onclick = async () => {
+    div.querySelector('.stub-blocked').textContent = 'probing…';
+    try {
+      let r;
+      if (s.isUpload) {
+        const form = new FormData();
+        form.append('file', new Blob([new Uint8Array(4)], { type: 'application/octet-stream' }), 'probe.bin');
+        r = await fetch(s.endpoint, { method: 'POST', body: form });
+      } else if (s.method === 'POST') {
+        r = await fetch(s.endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(s.body || {}),
+        });
+      } else {
+        r = await fetch(s.endpoint);
+      }
+      const d = await r.json();
+      div.querySelector('.stub-blocked').textContent =
+        d.phase ? `${d.phase} — see details` : `HTTP ${r.status}`;
+      modalTitle.textContent = s.name + (d.phase ? ` — ${d.phase}` : '');
+      modalBody.textContent = (d.blocked_on || d.detail || JSON.stringify(d, null, 2));
+      modalBg.classList.add('show');
+    } catch (e) {
+      div.querySelector('.stub-blocked').textContent = 'probe error: ' + e;
+    }
+  };
+  stubsEl.appendChild(div);
+});
+</script>
+</body>
+</html>
