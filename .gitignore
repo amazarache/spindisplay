@@ -46,3 +46,6 @@ tmp/
 # Internal dev notes — CLAUDE.md contains host network topology, MAC
 # addresses, and other identifying info that should stay off the public repo.
 CLAUDE.md
+
+# Internal engineering reference — not for public distribution.
+docs/OWASP-Secure-Coding.md
